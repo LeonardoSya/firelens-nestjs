@@ -1,0 +1,6 @@
+{
+  "auto-close-tag.enableAutoCloseSelfClosingTag": false,
+  "html.autoClosingTags": false,
+  "javascript.autoClosingTags": false,
+  "typescript.autoClosingTags": false
+}
