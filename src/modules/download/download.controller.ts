@@ -12,13 +12,13 @@ export class DownloadController {
       const filePath = await this.downloadService.downloadAndProcessCsvFile()
       return {
         success: true,
-        message: '源数据下载成功并处理完成',
+        message: 'Source data downloaded and processed successfully',
         filePath,
       }
     } catch (error) {
       return {
         success: false,
-        message: `源数据处理失败: ${error.message}`, // 将Service层logger记录的具体错误细节包装成http响应
+        message: `Failed to process source data: ${error.message}`,
       }
     }
   }

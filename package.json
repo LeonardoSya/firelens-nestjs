@@ -20,21 +20,27 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@nestjs/common": "^10.0.0",
+    "@nestjs/common": "^10.4.6",
     "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/typeorm": "^10.0.2",
+    "@vercel/postgres": "^0.10.0",
     "axios": "^1.7.7",
+    "cli-progress": "^3.12.0",
     "csv-parser": "^3.0.0",
     "csv-writer": "^1.6.0",
+    "pg": "^8.13.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "typeorm": "^0.3.20"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
+    "@sinonjs/fake-timers": "^13.0.5",
     "@swc/cli": "^0.5.0",
     "@swc/core": "^1.7.42",
     "@types/express": "^5.0.0",

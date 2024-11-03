@@ -48,7 +48,6 @@ export class NdviService implements OnModuleInit {
     try {
       const tiffPath = path.join(process.cwd(), 'data', 'ndvi2407.tif')
       this.tiffData = await this.initializeTiff(tiffPath)
-      this.logger.log('NDVI TIFF数据加载成功')
     } catch (error) {
       this.logger.error(`NDVI TIFF数据加载失败: ${error.message}`)
     }
@@ -70,11 +69,7 @@ export class NdviService implements OnModuleInit {
       const pixelIndex = iy * width + ix
       const rawValue = rasters[pixelIndex]
 
-      if (rawValue === 32767) {
-        return null
-      }
-
-      return rawValue / 10000
+      return rawValue
     } catch (error) {
       this.logger.error(`NDVI字段提取失败: ${error.message}`)
       return null

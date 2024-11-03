@@ -1,9 +1,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import glob
 
 # 读取CSV文件
-df = pd.read_csv('src/temp/data/firms_data_2024-11-02T11:05:09.897Z_ndvi.csv')
+csv_files = glob.glob('../src/temp/data/*.csv')
+df = pd.read_csv(csv_files[0])
 
 # 1. 详细的描述性统计
 print("NDVI详细统计分析:")
