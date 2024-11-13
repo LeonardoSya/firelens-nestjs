@@ -1,6 +1,11 @@
-import { Controller, Get } from '@nestjs/common'
-import { DownloadService } from './download.service'
-import { DownloadResponse } from './download.interface'
+import { Controller, Get } from '@nestjs/common';
+import { DownloadService } from './download.service';
+
+interface DownloadResponse {
+  success: boolean;
+  message: string;
+  filePath?: string;
+}
 
 @Controller('download')
 export class DownloadController {
@@ -9,17 +14,17 @@ export class DownloadController {
   @Get()
   async downloadFirmsCsv(): Promise<DownloadResponse> {
     try {
-      const filePath = await this.downloadService.downloadAndProcessCsvFile()
+      const filePath = await this.downloadService.downloadAndProcessCsvFile();
       return {
         success: true,
         message: 'Source data downloaded and processed successfully',
         filePath,
-      }
+      };
     } catch (error) {
       return {
         success: false,
         message: `Failed to process source data: ${error.message}`,
-      }
+      };
     }
   }
 }
