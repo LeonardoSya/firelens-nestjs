@@ -15,64 +15,50 @@ export interface TiffMetadata {
 @Injectable()
 export class NdviService implements OnModuleInit {
   private readonly logger = new Logger(NdviService.name);
-  private tiffData: TiffMetadata;
+  private tiffPath: string;
+  private ndviCache = new Map<string, number>();
 
   constructor(private configService: ConfigService) {
     sharp.cache(false);
     sharp.concurrency(1);
   }
 
-  private async initializeTiff(tiffPath: string): Promise<TiffMetadata> {
-    try {
-      const image = sharp(tiffPath, {
-        limitInputPixels: false,
-      });
-
-      const metadata = await image.metadata();
-      const { width, height } = metadata;
-
-      if (!width || !height) throw new Error('无法获取图像尺寸');
-
-      const { data: rasters } = await image
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-
-      const bbox = [-180, -90, 180, 90];
-
-      return {
-        image,
-        rasters,
-        width,
-        height,
-        bbox,
-      };
-    } catch (error) {
-      this.logger.error(`TIFF初始化失败: ${error.message}`);
-      throw error;
-    }
-  }
-
   async onModuleInit() {
     try {
-      const ndviPath = this.configService.get<string>('nasaFirms.ndviPath');
-      if (!ndviPath) {
+      this.tiffPath = this.configService.get<string>('nasaFirms.ndviPath');
+      if (!this.tiffPath) {
         throw new Error('NDVI file path is not configured');
       }
       
-      if (!fs.existsSync(ndviPath)) {
-        throw new Error(`NDVI file not found at path: ${ndviPath}`);
+      if (!fs.existsSync(this.tiffPath)) {
+        throw new Error(`NDVI file not found at path: ${this.tiffPath}`);
       }
-
-      this.tiffData = await this.initializeTiff(ndviPath);
     } catch (error) {
       this.logger.error(`NDVI TIFF数据加载失败: ${error.message}`);
       throw error;
     }
   }
 
-  getNdviValue(latitude: number, longitude: number): number | null {
+  async getNdviValue(latitude: number, longitude: number): Promise<number | null> {
+    const cacheKey = `${latitude},${longitude}`;
+    if (this.ndviCache.has(cacheKey)) {
+      return this.ndviCache.get(cacheKey);
+    }
+
     try {
-      const { bbox, width, height, rasters } = this.tiffData;
+      const image = sharp(this.tiffPath, {
+        limitInputPixels: false,
+      });
+
+      const metadata = await image.metadata();
+      const { width, height } = metadata;
+
+      if (!width || !height) {
+        this.logger.error('无法获取图像尺寸');
+        return null;
+      }
+
+      const bbox = [-180, -90, 180, 90];
       const [xMin, yMin, xMax, yMax] = bbox;
 
       const x = ((longitude - xMin) / (xMax - xMin)) * width;
@@ -81,14 +67,20 @@ export class NdviService implements OnModuleInit {
       const ix = Math.floor(x);
       const iy = Math.floor(y);
 
-      if (ix < 0 || ix >= width || iy < 0 || iy >= height) return null;
+      if (ix < 0 || ix >= width || iy < 0 || iy >= height) {
+        return null;
+      }
 
-      const pixelIndex = iy * width + ix;
-      const rawValue = rasters[pixelIndex];
+      const { data: pixelValue } = await image
+        .extract({ left: ix, top: iy, width: 1, height: 1 })
+        .raw()
+        .toBuffer({ resolveWithObject: true });
 
-      return rawValue;
+      const value = pixelValue[0];
+      this.ndviCache.set(cacheKey, value);
+      return value;
     } catch (error) {
-      this.logger.error(`NDVI字段提取失败: ${error.message}`);
+      this.logger.error(`NDVI值提取失败: ${error.message}`);
       return null;
     }
   }

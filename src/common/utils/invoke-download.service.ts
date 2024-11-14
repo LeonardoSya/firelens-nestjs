@@ -16,13 +16,14 @@ export class InvokeDownloadService {
     try {
       await fs.promises.mkdir(outputDir, { recursive: true });
       
-      const fileName = `firms_data_${new Date().toISOString()}.csv`;
+      const fileName = `firms_data_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
       const filePath = path.join(outputDir, fileName);
       
       const response = await axios({
         method: 'GET',
         url,
         responseType: 'stream',
+        timeout: 30000,
       });
 
       return new Promise((resolve, reject) => {
@@ -36,6 +37,11 @@ export class InvokeDownloadService {
         let downloadedSize = 0;
 
         progressBar.start(totalSize, 0);
+        
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+
         const writer = fs.createWriteStream(filePath);
 
         response.data.on('data', (chunk) => {
@@ -47,12 +53,25 @@ export class InvokeDownloadService {
 
         writer.on('error', (err) => {
           progressBar.stop();
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
           reject(err);
         });
 
         writer.on('close', () => {
           progressBar.stop();
-          resolve(filePath);
+          if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
+            resolve(filePath);
+          } else {
+            reject(new Error('文件下载不完整或保存失败'));
+          }
+        });
+
+        response.data.on('error', (err) => {
+          progressBar.stop();
+          writer.end();
+          reject(err);
         });
       });
     } catch (error) {

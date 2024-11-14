@@ -5,7 +5,6 @@ import * as fs from 'fs';
 import * as csv from 'csv-parser';
 import * as cliProgress from 'cli-progress';
 import { NdviService } from 'src/common/utils/ndvi.service';
-import { DatabaseService } from 'src/common/services/database.service';
 import { StorageService } from 'src/common/utils/storage.service';
 import { InvokeDownloadService } from 'src/common/utils/invoke-download.service';
 
@@ -59,16 +58,18 @@ export class DownloadService {
   }
 
   private async processFirePointsData(inputFilePath: string): Promise<string> {
-    const results = [];
+    const results: any[] = [];
     const outputPath = inputFilePath.replace('.csv', '_ndvi.csv');
 
-    const totalRows = await new Promise<number>((resolve) => {
-      let count = 0;
+    const rawData = await new Promise<any[]>((resolve) => {
+      const data = [];
       fs.createReadStream(inputFilePath)
         .pipe(csv())
-        .on('data', () => count++)
-        .on('end', () => resolve(count));
+        .on('data', (row) => data.push(row))
+        .on('end', () => resolve(data));
     });
+
+    this.logger.log(`总共读取到 ${rawData.length} 条数据`);
 
     const progressBar = new cliProgress.SingleBar({
       format: 'NDVI Processing... |{bar}| {percentage}% || {value}/{total}',
@@ -76,37 +77,40 @@ export class DownloadService {
       barIncompleteChar: '\u2591',
     });
 
-    progressBar.start(totalRows, 0);
-    let processedRows = 0;
+    progressBar.start(rawData.length, 0);
+    
+    try {
+      const batchSize = 100;
+      for (let i = 0; i < rawData.length; i += batchSize) {
+        const batch = rawData.slice(i, i + batchSize);
+        const processedBatch = await Promise.all(
+          batch.map(async (data) => {
+            const ndvi = await this.ndviService.getNdviValue(
+              parseFloat(data.latitude),
+              parseFloat(data.longitude),
+            );
+            return { ...data, ndvi: ndvi !== null ? ndvi : '' };
+          })
+        );
+        results.push(...processedBatch);
+        progressBar.update(i + processedBatch.length);
+        
+        if (i % 1000 === 0) {
+          this.logger.debug(`已处理 ${i} / ${rawData.length} 条数据`);
+        }
+      }
 
-    return new Promise((resolve, reject) => {
-      fs.createReadStream(inputFilePath)
-        .pipe(csv())
-        .on('data', async (data) => {
-          const ndvi = this.ndviService.getNdviValue(
-            parseFloat(data.latitude),
-            parseFloat(data.longitude),
-          );
-          results.push({ ...data, ndvi: ndvi !== null ? ndvi : '' });
-          processedRows++;
-          progressBar.update(processedRows);
-        })
-        .on('end', async () => {
-          progressBar.stop();
-          try {
-            await this.writeProcessedData(results, outputPath);
-            await this.saveToDatabase(results, outputPath);
-            resolve(outputPath);
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on('error', (error) => {
-          progressBar.stop();
-          this.logger.error(`数据处理失败: ${error.message}`);
-          reject(error);
-        });
-    });
+      progressBar.stop();
+      this.logger.log(`NDVI处理完成，共处理 ${results.length} 条数据`);
+
+      await this.writeProcessedData(results, outputPath);
+      await this.saveToDatabase(results, outputPath);
+      return outputPath;
+    } catch (error) {
+      progressBar.stop();
+      this.logger.error(`数据处理失败: ${error.message}`);
+      throw error;
+    }
   }
 
   private async writeProcessedData(
