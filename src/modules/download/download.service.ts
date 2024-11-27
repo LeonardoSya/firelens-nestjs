@@ -69,8 +69,6 @@ export class DownloadService {
         .on('end', () => resolve(data));
     });
 
-    this.logger.log(`总共读取到 ${rawData.length} 条数据`);
-
     const progressBar = new cliProgress.SingleBar({
       format: 'NDVI Processing... |{bar}| {percentage}% || {value}/{total}',
       barCompleteChar: '\u2588',
